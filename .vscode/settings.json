@@ -1,0 +1,12 @@
+{
+    "editor.rulers": [
+        80, 100
+    ],
+    "editor.acceptSuggestionOnEnter": "off",
+    "C_Cpp.default.includePath": [
+        "./include",
+        "/usr/include/",
+        "/usr/include/glib-2.0",
+        "/usr/lib/x86_64-linux-gnu/glib-2.0/include"
+    ]
+}

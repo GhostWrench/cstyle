@@ -1,0 +1,18 @@
+version: '3'
+services:
+  cstyle:
+    image: 'cstyle:latest'
+    build:
+      context: .
+    container_name: 'cstyle'
+    hostname: 'cstyle'
+    restart: unless-stopped
+    volumes:
+      - .:/root/cstyle
+    networks:
+      - cstyle
+    tty: true
+    stdin_open: true
+networks:
+  cstyle:
+    name: 'cstyle'
