@@ -141,16 +141,15 @@ libraries. Use `PVT` for headers that are for use only within the program.
 
 ### Defining headers for external use
 
-If your project defines headers so that your code can be used as an external
-library the headers and everything defined in them should be "namespaced" with
+Everything defined in public headers should be "namespaced" with
 the module or project name to avoid collisions with anything in the code that
-uses them. This means the header must be included with
+uses them.
 
 ```c
 #include <modulename/file.h>
 ```
 
-and global functions, variables, typedefs and macros defined by them must be of 
+Functions, variables, typedefs and macros defined in them must be of 
 the form `<modulename>_variable_or_func_name` so as not to pollute the 
 namespace 
 

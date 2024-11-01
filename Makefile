@@ -4,32 +4,47 @@ SHELL = /bin/sh
 
 # Build options
 BUILD_CFG ?= debug
-BUILD_TYPE ?= exec
 SHARED_LIB ?= 1
 CFLAGS_EXTRA ?= 
 LDFLAGS_EXTRA ?=
+DESTDIR ?= 
 
 # Build Settings
-CFLAGS = -Wall -Wextra -Wpedantic -std=c17 -I$(srcdir)/include
+CFLAGS = -Wall -Wextra -Wpedantic -std=c17 -g -I$(srcdir)/include
 ifeq ($(BUILD_CFG),debug)
-CFLAGS += -g -O0 -DDEBUG
+CFLAGS += -O0 -DDEBUG
 endif
 LDFLAGS = 
 
-# Directory definitions
+# Project configuration
+PROJECT_NAME = cstyle
+VERSION_MAJOR = $(shell sed -n -e 's/\#define CSTYLE_VERSION_MAJOR \([0-9]*\)/\1/p' $(srcdir)/include/$(PROJECT_NAME)/core.h)
+VERSION_MINOR = $(shell sed -n -e 's/\#define CSTYLE_VERSION_MINOR \([0-9]*\)/\1/p' $(srcdir)/include/$(PROJECT_NAME)/core.h)
+VERSION_PATCH = $(shell sed -n -e 's/\#define CSTYLE_VERSION_PATCH \([0-9]*\)/\1/p' $(srcdir)/include/$(PROJECT_NAME)/core.h)
+
+# Directory definitions (defaults recommended by GNU)
 srcdir = .
 prefix = /usr/local
 exec_prefix = $(prefix)
+bindir = $(exec_prefix)/bin
+sbindir = $(exec_prefix)/sbin
+libexecdir = $(exec_prefix)/libexec
+datarootdir = $(prefix)/share
+datadir = $(datarootdir)
+sysconfdir = $(prefix)/etc
+sharedstatedir = $(prefix)/com
 localstatedir = $(prefix)/var
+runstatedir = $(localstatedir)/run
 includedir = $(prefix)/include
+docdir = $(datarootdir)/doc/$(PROJECT_NAME)
+infodir = $(datarootdir)/info
+htmldir = $(docdir)
+dvidir = $(docdir)
+pdfdir = $(docdir)
+psdir = $(docdir)
 libdir = $(exec_prefix)/lib
-DESTDIR = 
-
-# Project configuration
-PROJECT_NAME = cstyle
-VERSION_MAJOR = $(shell sed -n -e 's/\#define CSTYLE_VERSION_MAJOR \([0-9]*\)/\1/p' $(srcdir)/include/$(PROJECT_NAME).h)
-VERSION_MINOR = $(shell sed -n -e 's/\#define CSTYLE_VERSION_MINOR \([0-9]*\)/\1/p' $(srcdir)/include/$(PROJECT_NAME).h)
-VERSION_PATCH = $(shell sed -n -e 's/\#define CSTYLE_VERSION_PATCH \([0-9]*\)/\1/p' $(srcdir)/include/$(PROJECT_NAME).h)
+localedir = $(datarootdir)/locale
+mandir = $(datarootdir)/man
 
 # Configure external libraries
 # glib-2.0
@@ -37,21 +52,21 @@ CFLAGS += $(shell pkg-config --cflags glib-2.0)
 LDFLAGS += $(shell pkg-config --libs glib-2.0)
 
 # Find all the source and header files
-EXE_SRC = $(srcdir)/src/$(PROJECT_NAME).c
-OBJ_SRC = $(filter-out $(EXE_SRC),$(wildcard $(srcdir)/src/*.c))
+EXEC_SRC = $(srcdir)/src/$(PROJECT_NAME).c
+OBJ_SRC = $(filter-out $(EXEC_SRC),$(wildcard $(srcdir)/src/*.c))
 TEST_SRC = $(wildcard $(srcdir)/test/*.c)
 PVT_H = $(wildcard $(srcdir)/include/*.h)
 PUB_H = $(wildcard $(srcdir)/include/$(PROJECT_NAME)/*.h)
 
 # Calculate names of the build artifacts and outputs
-EXE = ./output/$(PROJECT_NAME)-v$(VERSION_MAJOR).$(VERSION_MINOR).$(VERSION_PATCH)
+EXEC = ./output/$(PROJECT_NAME)
 ifeq ($(SHARED_LIB),1)
-LIB = ./output/lib$(PROJECT_NAME)-v$(VERSION_MAJOR).$(VERSION_MINOR).$(VERSION_PATCH).so
+LIB = ./output/lib$(PROJECT_NAME).so.$(VERSION_MAJOR).$(VERSION_MINOR).$(VERSION_PATCH)
 else
-LIB = ./output/lib$(PROJECT_NAME)-v$(VERSION_MAJOR).$(VERSION_MINOR).$(VERSION_PATCH).a
+LIB = ./output/lib$(PROJECT_NAME).a.$(VERSION_MAJOR).$(VERSION_MINOR).$(VERSION_PATCH)
 endif
 OBJS = $(patsubst $(srcdir)/src/%.c,./build/%.o,$(OBJ_SRC))
-TEST_EXES = $(patsubst $(srcdir)/test/%.c,./build/test/%.elf,$(TEST_SRC))
+TEST_EXECS = $(patsubst $(srcdir)/test/%.c,./build/test/%.elf,$(TEST_SRC))
 TEST_OUTS = $(patsubst $(srcdir)/test/%.c,./build/test/%.out,$(TEST_SRC))
 
 # Input checking
@@ -61,27 +76,21 @@ $(error BUILD_CFG must be either 'debug' or 'release')
 endif
 endif
 
-ifneq ($(BUILD_TYPE),exec)
-ifneq ($(BUILD_TYPE),lib)
-$(error BUILD_TYPE must be either 'exec' or 'lib')
-endif
-endif
-
 # Build targets
-.PHONY: clean
+.PHONY: clean uninstall
 
-all: $(BUILD_TYPE)
+all: $(EXEC) $(LIB)
 
-exec: $(EXE)
+exec: $(EXEC)
 
 lib: $(LIB)
 
-test: $(TEST_EXES)
+test: $(TEST_EXECS)
 
 runtest: $(TEST_OUTS)
 
-$(EXE): $(EXE_SRC) $(OBJS)
-	@mkdir -p ./$(OUTPUT_DIR)
+$(EXEC): $(EXEC_SRC) $(OBJS)
+	@mkdir -p ./output
 	$(CC) $(CFLAGS) $(CFLAGS_EXTRA) -o $@ $< $(OBJS) $(LDFLAGS) $(LDFLAGS_EXTRA)
 
 ifeq ($(SHARED_LIB),1)
@@ -102,10 +111,23 @@ endif
 	@mkdir -p ./build/test
 	$(CC) $(CFLAGS) $(CFLAGS_EXTRA) -o $@ $< $(OBJS) $(LDFLAGS)
 
-./build/test/%.out : ./build/test/%.elf $(TEST_EXES)
-	@mkdir -p ./$(OUTPUT_DIR)/$(TEST_DIR)
+./build/test/%.out : ./build/test/%.elf $(TEST_EXECS)
+	@mkdir -p ./build/test
 	@$(srcdir)/script/runtest.sh $< $@
 
 clean:
 	rm -rf ./build/*
 	rm -rf ./output/*
+
+install: $(EXEC) $(LIB) 
+	install -d $(DESTDIR)$(bindir)
+	install -s -m 755 $(EXEC) $(DESTDIR)$(bindir) 
+	install -d $(DESTDIR)$(libdir)
+	install -s -m 755 $(LIB) $(DESTDIR)$(libdir)
+	install -d $(DESTDIR)$(includedir)/$(PROJECT_NAME)
+	install -m 644 $(PUB_H) $(DESTDIR)$(includedir)/$(PROJECT_NAME)
+
+uninstall:
+	rm -f $(DESTDIR)$(bindir)/$(notdir $(EXEC))
+	rm -f $(DESTDIR)$(libdir)/$(notdir $(LIB))
+	rm -rf $(DESTDIR)$(includedir)/$(PROJECT_NAME)
